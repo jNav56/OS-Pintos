@@ -1,0 +1,405 @@
+                    +-------------------------+
+                    |           CS 439        |
+                    | PROJECT 4: FILE SYSTEMS |
+                    |      DESIGN DOCUMENT    |
+                    +-------------------------+
+
+
+The questions in this design document should reflect the design of the code you
+wrote for the project.  Your grade will reflect both the quality of your answer
+in this document and the quality of the design implementation in your code.  You
+may receive partial credit for answering questions for parts of the project that
+you did not get to implement, but you must indicate in your answer that there is
+no corresponding implementation, or you will not receive any credit.
+
+
+For each question, you should include both the name of the file(s), function
+name(s), and the line numbers where the relevant code may be found.
+
+
+These design documents should be completed individually.  Group members are
+welcome to use this document as a guide for design and are welcome to discuss
+the questions, but there should be no group notes or other sorts of copying of
+design documents.
+
+
+When you have completed your design document, submit it to the Canvas assignment
+Project 4 Design and Documentation.  ***Your submission must be a text file and
+each line must not extend past 80 characters.  In addition, your submission must
+contain all of the original material and not exceed 18,000 characters.  The
+character count will be measured using the Linux command wc.  (Note that rtf
+files are NOT text files.)
+
+
+---- Name ----
+
+
+>> Fill your name, UT EID, CS login, email address, and unique number:
+
+
+Name: Juan Nava
+EID: jcn842
+CS login: jNav56
+Email: nava.juan1012@gmail.com
+Unique Number: 50500
+
+
+
+
+Slip days used on this project: 0
+
+
+---- GROUP ----
+
+
+>> Fill the names, UT EIDs, CS logins, email addresses, and unique numbers
+>> of your group members.  Also fill in each person's ranking on the 
+>> partner evaluation scale, as determined by you.
+
+
+Name1: Keegan Franklin
+EID1: kdf937
+CS login: kdf937
+Email: kdvon2000@gmail.com
+Unique Number: 50500
+Ranking (scale below): Excellent
+
+
+Name2:
+EID2:
+CS login:
+Email:
+Unique Number:
+Ranking (scale below):
+
+
+Name3:
+EID2:
+CS login:
+Email:
+Unique Number:
+Ranking (scale below):
+
+
+
+
+---- PARTNER EVALUATION SCALE ----
+
+
+>> Excellent: Consistently went above and beyond - tutored others, carried
+>> more than his/her fair share of the load.
+
+
+>> Very Good: Consistently did what he/she was supposed to do, very well
+>> prepared and cooperative.
+
+
+>> Satisfactory: Usually did what he/she was supposed to do, minimally
+>> prepared and cooperative.
+
+
+>> Marginal: Sometimes failed to show up and/or rarely prepared.
+
+
+>> Deficient: Often failed to show up and/or rarely prepared.
+
+
+>> Unsatisfactory: Consistently failed to show up and/or unprepared.
+
+
+>> Superficial: Practically no participation.
+
+
+>> No Show: No participation at all.
+
+
+
+
+
+
+
+
+---- PRELIMINARIES ----
+
+
+>> If you have any preliminary comments on your submission or notes for the
+>> TAs, give them here.
+
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+
+                     INDEXED AND EXTENSIBLE FILES
+                     ============================
+
+
+---- DATA STRUCTURES ----
+
+
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', ‘#define’, or
+>> enumeration that was necessary for your indexed and extensible file
+>> implementation.  Identify the purpose of each in 25 words or less.
+
+File: filesys/inode.h
+Line: 19
+Purpose: This version of the inode_disk holds direct entries with one
+first-indirection and one second-inderection multi level indeces.
+
+struct inode_disk
+  {
+    block_sector_t direct_blocks[DIRECT_ENTRIES];  /* Array of direct blocks */
+    block_sector_t indirect_index[2];      /* Keep track of indirect indexes */
+    off_t length;                                     /* File size in bytes. */
+    bool is_directory;               /* Tells us if the inode is a directory */
+    block_sector_t parent_dir;           /* Location of the parent directory */
+  };
+
+--------------
+
+File: filesys/inode.h
+Line: 12 - 15
+Purpose: Hold constant of the for the number of sectors entries starting from
+the start of direct entries to the end of doubly indirect entries.
+
+#define DIRECT_ENTRIES 123
+#define INDIRECT_ENTRIES 128
+#define DOUBLY_INDIRECT_ENTRIES 16384
+#define TOTAL_ENTRIES 16635
+
+--------------
+
+File: filesys/inode.c
+Line: 20
+Purpose: Acts as a temporary array for accesing sectors using indirect indexing. 
+
+struct index_block
+{
+  block_sector_t indirect_arr[INDIRECT_ENTRIES];
+};
+
+--------------
+
+File: filesys/file.h
+Line: 11
+
+struct file 
+  {
+    struct inode *inode;        /* File's inode. */
+    off_t pos;                  /* Current position. */
+    bool deny_write;            /* Has file_deny_write() been called? */
+    bool is_directory;          /* Tells us if the file is a directory */
+    struct dir *directory_ptr;  /* Location of the directory */
+  };
+
+
+>> A2: What is the maximum size of a file supported by your inode
+>> structure?  Show your work.
+
+The maximum size is 8_517_120 bytes because the inode has a total of 16_635
+entries which are essentially sectors. So with sectors being 512 bytes long,
+then we just multiply 16_635 * 512 to give us 8_517_120 bytes.
+
+
+---- SYNCHRONIZATION ----
+
+
+>> A3: Explain how your code avoids a race if two processes attempt to
+>> extend a file at the same time.
+
+Method: increase_inode_length ()
+File: filesys/inode.c
+Line: 505
+
+No synchronization for that purpose. However if able to redo the project,
+then I would a lock inside the inode of the file. So, when we call the
+method increase_inode_length () we would acquire the file's lock to
+ensure only one process is extending the file.
+
+
+>> A4: Suppose processes A and B both have file F open, both
+>> positioned at end-of-file.  If A reads and B writes F at the same
+>> time, A may read all, part, or none of what B writes.  However, A
+>> may not read data other than what B writes, e.g. if B writes
+>> nonzero data, A is not allowed to see all zeros.  Explain how your
+>> code avoids this race.
+
+We only update the size of the inode after we have completed writing
+data. This means that A will not read any of the nonzero data. This
+can be avoided by having a end of file variable in the struct inode.
+It could be length, and that will tell inode where it should end
+reading. This length member in struct inode could be updated by the
+inode_disk everytime B writes a sector.
+
+
+>> A5: Explain how your synchronization design provides "fairness".
+>> File access is "fair" if readers cannot indefinitely block writers
+>> or vice versa.  That is, one or many processes reading from a file
+>> cannot forever prevent another process from writing to the file, and
+>> one or many processes writing to a file cannot forever prevent
+>> another process from reading the file.
+
+No implementation for the turned in version that shows a trait of fairness
+between readers and writers. However, only trying to acquire locks in
+methods that write data to sectors for a file and ignoring methods that
+read a file will ensure fairness. This is because a reader will only
+read up to the point where a process writing into a file has updated
+the end of file member. 
+
+
+---- RATIONALE ----
+
+
+>> A6: Is your file layout a multilevel indexed structure?  If so, why
+>> did you choose this particular combination of direct, indirect, and
+>> doubly indirect blocks?  If not, why did you choose an alternative
+>> file structure, and what advantages and disadvantages does your
+>> structure have, compared to a multilevel index?
+>> In your explanation, include at least two reasons to support your 
+>> choices.
+
+We do have this implementation because it random access is possible and it is
+likely continuous blocks of sectors can alway be allocated. Also, this
+implementation is a reasonable hybrid that can accomodate small and large
+files. Small files may only require the direct indexes to be allocated. And
+large files will be able to utilize indirection if it is not able to fit in
+the direct indexes.
+
+
+
+
+                            SUBDIRECTORIES
+                            ==============
+
+
+---- DATA STRUCTURES ----
+
+
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', ‘#define’, or
+>> enumeration that was necessary for your subdirectory 
+>> implementation.  Identify the purpose of each in 25 words or less.
+
+File: threads/thread.h
+Line: 124
+Purpose: This is the replacement file organizer for a thread that holds
+126 different files.
+
+struct file *file_list_array[128];
+
+--------------
+
+File: threads/thread.h
+Line: 125
+Purpose: The sector of the thread's directory, or where the directory starts.
+
+block_sector_t directory;
+
+--------------
+
+File: userprog/syscall.c
+Line: 24 - 25
+Purpose: Constants for inidicating the minimum file descriptor and the maximum
+file descriptor. Also gives the limit on the number of open files allowed.
+
+#define FD_START 2
+#define FD_END 127
+
+
+---- ALGORITHMS ----
+
+
+>> B2: Describe your code for traversing a user-specified path.  How
+>> do traversals of absolute and relative paths differ?
+
+Method: furthest_inode ()
+File: userprog/syscall.c
+Line: 79
+
+First we want to know what will be treated as the current directory. If the
+first character is a '/', then we will treat the root directory as the current
+directory. Alternatively, we treat the thread's directory as the current
+directory. From here we open every directory in the path until we get to the
+end of the line indicated by the last '/'. We then return the directory we
+had last open, which is the last segment of the path.
+ 
+
+---- SYNCHRONIZATION ----
+
+
+>> B3: How do you prevent races on directory entries?  For example,
+>> only one of two simultaneous attempts to remove a single file
+>> should succeed, as should only one of two simultaneous attempts to
+>> create a file with the same name, and so on.
+
+Declaration: struct lock file_lock;
+File: userprog/syscall.h
+Line: 10
+
+Put short, we used a global lock on methods in the system calls that changed
+the data or status of a file. This included creating a file, deleting a file,
+opening a file, getting the size of a file, reading, and writing.
+
+
+>> B4: Does your implementation allow a directory to be removed if it
+>> is open by a process or if it is in use as a process's current
+>> working directory?  If so, what happens to that process's future
+>> file system operations?  If that’s not allowed, how do you
+>> prevent it?
+
+We do not implement this. However, a solution that is possible is to keep a
+count of the number of processes that has an inode open. This may be done by
+adding an int member in the inode struct to keep track of the number of
+processes it is being opened by. So when a process closes the inode, then an
+inode can only ever truly release it's resources when the count of processes
+that have it open is zero.
+
+
+---- RATIONALE ----
+
+
+>> B5: What type of variable/structure did you use to represent the 
+>> current directory of a process?   Why did you choose this 
+>> representation?  Give at least two reasons.
+
+We did not have a struct dir easily accessible to the thread. Instead we had
+member keeping track of the directory. We followed this implementation
+because we did not have to access the current directory as much as we would've
+thought it be justified to contain the struct in the thread's struct. If
+anything, it was not hard to get an inode using the sector member of thread
+and using dir_open () to get a directory.
+
+
+
+                           SURVEY QUESTIONS
+                           ================
+
+
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the quarter.
+
+
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
+
+
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+
+
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+
+
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students in future quarters?
+
+
+>> Any other comments?
+

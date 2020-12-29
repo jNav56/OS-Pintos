@@ -1,0 +1,392 @@
+﻿                        +--------------------+
+                        |        CS 439      |
+                        | PROJECT 1: THREADS |
+                        |   DESIGN DOCUMENT  |
+                        +--------------------+
+
+
+The questions in this design document should reflect the design of the code you
+wrote for the project.  Your grade will reflect both the quality of your answer
+in this document and the quality of the design implementation in your code.  You
+may receive partial credit for answering questions for parts of the project that
+you did not get to implement, but you must indicate in your answer that there is
+no corresponding implementation, or you will not receive any credit.
+
+
+For each question, you should include both the name of the file(s), function
+name(s), and the line numbers where the relevant code may be found.
+
+
+These design documents should be completed individually.  Group members are
+welcome to use this document as a guide for design and are welcome to discuss
+the questions, but there should be no group notes or other sorts of copying of
+design documents.
+
+
+When you have completed your design document, submit it to the Canvas assignment
+Project 1 Design and Documentation.  ***Your submission must be a text file and
+each line must not extend past 80 characters.  In addition, your submission must
+contain all of the original material and not exceed 17,000 characters.  The
+character count will be measured using the Linux command wc.  (Note that rtf
+files are NOT text files.)
+
+
+---- Name ----
+
+
+>> Fill your name, UT EID, CS login, email address, and unique number:
+
+
+Name:Juan Nava
+EID:jcn842
+CS login:jNav56
+Email:nava.juan1012@gmail.com
+Unique Number:50500
+
+Slip days used on this project:0
+
+
+---- GROUP ----
+
+
+>> Fill the names, UT EIDs, CS logins, email addresses, and unique numbers
+>> of your group members.  Also fill in each person's ranking on the 
+>> partner evaluation scale, as determined by you.
+
+
+Name1:Keegan Franklin
+EID1:kdf937
+CS login:kdf937
+Email:kdvon2000@gmail.com
+Unique Number:50500
+Ranking (scale below):Excellent
+
+
+Name2:
+EID2:
+CS login:
+Email:
+Unique Number:
+Ranking (scale below):
+
+
+Name3:
+EID2:
+CS login:
+Email:
+Unique Number:
+Ranking (scale below):
+
+
+---- PARTNER EVALUATION SCALE ----
+
+
+>> Excellent: Consistently went above and beyond - tutored others, carried
+>> more than his/her fair share of the load.
+
+>> Very Good: Consistently did what he/she was supposed to do, very well
+>> prepared and cooperative.
+
+>> Satisfactory: Usually did what he/she was supposed to do, minimally
+>> prepared and cooperative.
+
+>> Marginal: Sometimes failed to show up and/or rarely prepared.
+
+>> Deficient: Often failed to show up and/or rarely prepared.
+
+>> Unsatisfactory: Consistently failed to show up and/or unprepared.
+
+>> Superficial: Practically no participation.
+
+>> No Show: No participation at all.
+
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission or notes for the
+>> TAs,  please give them here.
+
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+
+                             ALARM CLOCK
+                             ===========
+
+
+---- DATA STRUCTURES ----
+
+
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', ‘#define’, or
+>> enumeration that was necessary for your implementation of alarm
+>> clock.  Identify the purpose of each in 25 words or less.
+
+Added members in struct thread (thread.h): Lines 96 - 103
+-int64_t end_ticks: Keeps track of the timer tick the thread should be awaken
+	starting when it calls timer_sleep().
+-semaphore sema_tick: A semaphore used to block the thread in order to wait
+	for its time to wake up so it doesn't busy wait.
+-list_elem wait_elem: The list element that corresponds with waiting_threads.
+
+Added in timer.c file: Line 24 and Line 39 respectively
+-list waiting_threads: List that will keep track of all threads that have
+	called timer_sleep() and are still not awakened.
+-function timer_compare: List_less function used to order the threads in
+	waiting_threads by order of their end_ticks member.
+
+
+---- ALGORITHMS ----
+
+
+>> A2: Briefly describe what happens when a thread calls timer_sleep(),
+>> including the steps necessary to wake a thread (hint: timer_interrupt).
+
+File: timer.c - Function: timer_sleep() - Line: 106
+File: timer.c - Function: timer_interrupt() - Line: 199
+
+When a thread calls timer_sleep() the thread keeps track of when it is
+supposed to be awaken through end_ticks. The thread is then added to
+waiting_threads, a list of threads that will be waiting to wake up.
+Afterwards, the thread calls sema down on sema_tick to change it's state 
+from Running to Blocked.
+
+A thread is awaken when the time matches
+end_ticks. We go around doing this by iterating the waiting_threads list
+to check the end_ticks member in each of the threads. If a thread's
+end_ticks is less or equal to that of the current tick, then we remove
+the thread from waiting_threads and call sema_up to move the thread to
+the ready_queue.
+
+>> A3: What steps are taken to minimize the amount of time spent in
+>> the timer interrupt handler?
+
+File: timer.c - Function: timer_compare() - Line: 39
+File: timer.c - Function: timer_interrupt() - Line: 199
+
+We inserted the threads in to the waiting_threads list in order based
+on the time they were supposed to wake up. with timer_compare. This made
+it easier to rule the whole list out when end_ticks was larger than the
+current tick. When the current tick was smaller, then any thread beyond
+the one we were checking would for sure be waken up at a later time.
+
+---- SYNCHRONIZATION ----
+
+
+>> A4: How are race conditions avoided when multiple threads call
+>> timer_sleep() simultaneously?  Describe the race conditions.
+
+File: timer.c - Function: timer_sleep() - Line: 39
+
+A race condition occurs when a thread is being added to the waiting_threads
+list and gets pre-empted in the middle of being inserted in between two
+nodes. When the first thread gets pre-empted and a second thread also gets
+added to the list, there can be the possibility that the second thread is
+added in an adjacent spot next to the first thread. In this race condition
+the threads can input themselves in the wrong order.
+
+We avoided the race condition by disabling interrupts before adding a thread
+to waiting_threads and reenabling the interrupts after successfully inserting
+the thread to the list.
+
+>> A5: How are race conditions avoided when a timer interrupt occurs
+>> during a call to timer_sleep()? Describe the race conditions.
+
+File: timer.c - Function: timer_interrupt() - Line: 199
+
+The race condition in timer_interrupt happens when the function is going
+through the list of waiting_threads and checking to which threads need
+to be waken up, but the function then gets pre-empted because the timer
+has passed to another tick and has to call the timer_interrupt function
+again.
+
+In this situation a thread who was supposed to wake up on the tick that
+caused the first instance of timer_interrupt is now being compared with the
+tick that caused the second timer_iterrupt instance and will never wake up.
+
+We avoided the race condition by changing the comparison in the if-statement
+in line 220 of timer.c to check if the thread's end_tick was less than or
+equal to the current timer_tick.
+
+---- RATIONALE ----
+
+
+>> A6: Why did you choose this design?  In what ways is it superior to
+>> another design you considered?  Be certain to compare between two
+>> working designs.
+
+We chose this design because it overall avoided unwanted behavior since we
+ensure that we added threads to the waiting_threads list in a correct order
+without interruptions. It was superior to another design we had which did
+did not include a sorted list and let interrupts have free reign because
+there was no way to guarantee a list would be sorted in the correct order
+all of the time.
+
+
+                         PRIORITY SCHEDULING
+                         ===================
+
+
+---- DATA STRUCTURES ----
+
+
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', ‘#define’, or
+>> enumeration that was necessary for your implementation of priority
+>> scheduling and priority donation.  
+>> Identify the purpose of each in 25 words or less.
+
+Added members in struct thread (thread.h): Lines 107 - 112
+-base_priority: Keeps track of the initial priority.
+-lock *lock_pending: Lock that the thread is currently waiting on.
+-list acquired_locks: List of locks the thread has acquired.
+
+Added member in struct lock (synch.h): Line 27
+-list_elem lock_elem: Lock element for inserting lock in thread's list
+	of locks.
+
+Added member in struct emaphore_elem (synch.c): Line 348
+-int priority: Priority of thread waiting for a semaphore.
+
+Added in thread.c: Line 78
+-function priority_compare: List_less function used to order the threads
+	in ready_list by order of their priority member.
+
+Added in synch.c: Line 355
+-function sema_priority_compare: List_less function used to order the threads
+	in semaphore's waiting list by order of their priority member.
+
+
+---- ALGORITHMS ----
+
+
+>> B2: How do you ensure that the highest priority thread waiting for
+>> a lock, semaphore, or condition variable wakes up first?  
+>> Explain for all three.
+
+File: thread.c - Function: priority_compare() - Line: 78
+File: synch.c - Function: sema_priority_compare() - Line: 355
+File: thread.c - Function: thread_unblock() - Line: 260 - Use list_insert
+File: thread.c - Function: thread_yield() - Line: 332 - Use list_insert
+File: synch.c - Function: sema_down() - Line: 72 - Use list_insert
+File: synch.c - Function: cond_wait() - Line: 409 - Use list_insert
+
+We replaced the push_back instances in thread.c and synch.c with
+list_insert_ordered to add threads to a list. To do this we first
+created a list_less_func function that compared each relatable variable
+by priority. For locks and semaphores, we used the priority_compare
+function. For condition variables, we used the sema_priority_compare
+function.
+
+>> B3: Describe the sequence of events when a call to lock_acquire()
+>> causes a priority donation.  How is nested donation handled?
+
+File: synch.c - Function: lock_acquire() - Line: 211
+
+First the running thread checks if the lock is being held by another
+thread. If it is, the thread then checks if the priority of the thread
+holding the lock is lower than the current thread. If the priority
+of the lock holder is low, then the current thread donates its higher
+priority to the lock holder to make the lock holder be scheduled faster.
+
+To handle a nested donation, threads that call lock_aquire can save the
+lock address to their pending_lock member and enter a while loop. In the
+loop, an iterating temporary thread (that starts with the current thread)
+will check its pending lock and see if that lock is being held by someone.
+If the lock is being held, then a donation is made to the lock holder. Now
+the lock holder begins the steps again donating to the thread holding a
+lock that it is waiting for. This ensures that all threads who have threads
+waiting on them will have the maximum priority it can have to get scheduled
+as fast as possible. The loop breaks once a lock has no holder.
+
+>> B4: Describe the sequence of events when lock_release() is called
+>> on a lock on which a higher-priority thread is waiting.  What happens to
+>> the priority of the thread releasing the lock?
+
+File: synch.c - Function: lock_release() - Line: 278
+
+When the thread calls lock_release, the thread must remove the lock it is
+releasing from its list of acquired locks. After, the thread will begin
+to iterate over all the locks it currently holds. At each lock, the thread
+goes through the lock's list of threads waiting for it and gets the first
+entry (which has the highest priority) and sees if the thread with the highest
+priority waiting for that lock is larger than a local "highest_prioirty"
+variable.
+
+After the thread has finished loop through each lock it holds and possibly
+obtaining the highest priority and saving it in the local variable, the
+current thread will take that highest priority as a donation so that it
+can get scheduled faster.
+
+The priority of the thread can either go back to the base priority if there
+no locks the thread is trying to obtain or it can go to the highest priority
+it finds in the loop.
+
+---- SYNCHRONIZATION ----
+
+File: thread.c - Function: thread_set_priority() - Line: 357
+
+>> B5: Describe a potential race in thread_set_priority() and explain
+>> how your implementation avoids it.  Can you use a lock to avoid
+>> this race?  Defend your answer.
+
+A possible race condition is that the thread changing its priority gets a
+lower priority due to having a large donation while it is setting its
+priority to a new_priority value. Our implementation fixes this issue by
+making sure a priority is set uninterrupted so that if a donation does happen
+the original set is done first so no overlap causes the priority to decrease.
+
+---- RATIONALE ----
+
+
+>> B6: Why did you choose this design for your priority scheduling and
+>> donation?  In what ways is it superior to another design you considered?
+>> Please make certain you discuss both priority scheduling and donation, and
+>> be certain to compare against working designs.
+
+The design handled priority donation right at the moment the lock was wanting
+to be acquired and released. If the donation had happened anywhere else we
+wouldn't know what lock holding thread we would want to get on the scheduler
+as fast as possible. This design was superior to a design involing keeping a
+list of locks being held and having the unblock function checking to see each
+lock and going through the threads wanting to acquire it. The final design
+simplified the process to only checking one lock at a time.
+
+
+                           SURVEY QUESTIONS
+                           ================
+
+
+Answering these questions is optional, but it will help us improve the
+course in future semesters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the course evaluations at the end of
+the semester.
+
+>> In your opinion, was this assignment, or any one of the two problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
+
+Definitely not easy, I will say that it was hard
+
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+
+I feel like I gained more insight into the scheduler when my partner and
+I were passing the tests that had to do with implementing the lock
+acquire and lock release methods.
+
+>> Is there some particular fact or hint we should give students in
+>> future semesters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+
+Not sure, going through the tests helped a little in knowing what to do
+and the doc page had a lot of info. However, I thought that was the point.
+
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students, either for future semesters or the remaining projects?
+
+Don't be scared to ask questions.
+
+>> Any other comments?
