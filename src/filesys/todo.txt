@@ -1,0 +1,59 @@
+1. write a function to convert from logical sector to physical sector
+2. write a function to grow a file when writting past EOF
+
+
+inode.c
+	inode_close()
+		+ needs to be able to deallocate non-sequential blocks
+	inode_read()
+		+ like inode_close(), has to read non-sequential blocks
+	inode_write()
+		+ needs to grow file if writes up to EOF and past
+		+ needs to grow file if write starts past EOF
+		+ growth should be atomic
+		+ change 
+
+directory.c
+	struct dir
+		+ add a semephore?
+	dir_create()
+		+ add '.' and '..' entries here? or in mkdir?
+
+FAIL tests/filesys/extended/dir-rm-tree
+pass tests/filesys/extended/dir-rmdir
+pass tests/filesys/extended/dir-under-file
+FAIL tests/filesys/extended/dir-vine
+pass tests/filesys/extended/grow-create
+pass tests/filesys/extended/grow-dir-lg
+pass tests/filesys/extended/grow-file-size
+pass tests/filesys/extended/grow-root-lg
+pass tests/filesys/extended/grow-root-sm
+pass tests/filesys/extended/grow-seq-lg
+pass tests/filesys/extended/grow-seq-sm
+pass tests/filesys/extended/grow-sparse
+pass tests/filesys/extended/grow-tell
+pass tests/filesys/extended/grow-two-files
+pass tests/filesys/extended/syn-rw
+pass tests/filesys/extended/dir-empty-name-persistence
+FAIL tests/filesys/extended/dir-mk-tree-persistence
+pass tests/filesys/extended/dir-mkdir-persistence
+pass tests/filesys/extended/dir-open-persistence
+pass tests/filesys/extended/dir-over-file-persistence
+FAIL tests/filesys/extended/dir-rm-cwd-persistence
+pass tests/filesys/extended/dir-rm-parent-persistence
+pass tests/filesys/extended/dir-rm-root-persistence
+FAIL tests/filesys/extended/dir-rm-tree-persistence
+FAIL tests/filesys/extended/dir-rmdir-persistence
+pass tests/filesys/extended/dir-under-file-persistence
+FAIL tests/filesys/extended/dir-vine-persistence
+pass tests/filesys/extended/grow-create-persistence
+FAIL tests/filesys/extended/grow-dir-lg-persistence
+pass tests/filesys/extended/grow-file-size-persistence
+FAIL tests/filesys/extended/grow-root-lg-persistence
+FAIL tests/filesys/extended/grow-root-sm-persistence
+FAIL tests/filesys/extended/grow-seq-lg-persistence
+pass tests/filesys/extended/grow-seq-sm-persistence
+FAIL tests/filesys/extended/grow-sparse-persistence
+pass tests/filesys/extended/grow-tell-persistence
+FAIL tests/filesys/extended/grow-two-files-persistence
+FAIL tests/filesys/extended/syn-rw-persistence
